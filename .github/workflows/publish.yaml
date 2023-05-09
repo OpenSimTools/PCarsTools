@@ -1,0 +1,27 @@
+name: Publish
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+jobs:
+  publish:
+    runs-on: windows-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: '6.0.x'
+      - name: Build
+        run: dotnet pack -c Release
+      - #if: ${{ github.ref == 'refs/heads/master' }}
+        name: Push
+        run: |
+            dotnet nuget add source --username USERNAME --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/OpenSimTools/index.json"
+            dotnet nuget push .\PCarsTools\bin\Release\PCarsTools.*.nupkg --source github
+            dotnet nuget push .\XCompression\bin\Release\XCompression.*.nupkg --source github
