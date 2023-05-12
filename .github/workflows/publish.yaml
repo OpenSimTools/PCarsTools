@@ -23,5 +23,5 @@ jobs:
         name: Push
         run: |
             dotnet nuget add source --username USERNAME --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/OpenSimTools/index.json"
-            dotnet nuget push .\PCarsTools\bin\Release\PCarsTools.*.nupkg --source github
-            dotnet nuget push .\XCompression\bin\Release\XCompression.*.nupkg --source github
+            dotnet nuget push .\PCarsTools\bin\Release\PCarsTools.*.nupkg --skip-duplicate --source github
+            dotnet nuget push .\XCompression\bin\Release\PCarsTools.XCompression.*.nupkg --skip-duplicate --source github
