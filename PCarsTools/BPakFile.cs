@@ -20,7 +20,7 @@ using XCompression;
 
 namespace PCarsTools
 {
-    public class BPakFile
+    public class BPakFile : IDisposable
     {
         public const string TagId = "PAK ";
 
@@ -373,6 +373,13 @@ namespace PCarsTools
                 // No compression
                 File.WriteAllBytes(output, bytes);
                 return true;
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_fs is not null) {
+                _fs.Dispose();
             }
         }
     }
