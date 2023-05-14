@@ -20,9 +20,11 @@ using XCompression;
 
 namespace PCarsTools
 {
-    public class BPakFile
+    public class BPakFile : IDisposable
     {
         public const string TagId = "PAK ";
+
+        private readonly TextWriter outputWriter;
 
         public BVersion Version { get; set; }
         public string Name { get; set; }
@@ -41,24 +43,29 @@ namespace PCarsTools
         /// </summary>
         public string Path { get; set; }
 
+        private BPakFile(TextWriter outputWriter)
+        {
+            this.outputWriter = outputWriter is null ? Console.Out : outputWriter;
+        }
+
         /// <summary>
         /// Reads a pak file from a provided file name.
         /// </summary>
         /// <param name="inputFile"></param>
         /// <param name="withExtraInfo"></param>
         /// <returns></returns>
-        public static BPakFile FromFile(string inputFile, bool withExtraInfo = true)
+        public static BPakFile FromFile(string inputFile, bool withExtraInfo = true, TextWriter outputWriter = null)
         {
             var fs = new FileStream(inputFile, FileMode.Open);
-            var pak = FromStream(fs, withExtraInfo: withExtraInfo, tocFileName: inputFile);
+            var pak = FromStream(fs, withExtraInfo: withExtraInfo, tocFileName: inputFile, outputWriter: outputWriter);
             pak._fs = fs;
 
             return pak;
         }
 
-        public static BPakFile FromStream(Stream stream, bool withExtraInfo = false, string tocFileName = null)
+        public static BPakFile FromStream(Stream stream, bool withExtraInfo = false, string tocFileName = null, TextWriter outputWriter = null)
         {
-            var pak = new BPakFile();
+            var pak = new BPakFile(outputWriter);
             int pakOffset = (int)stream.Position;
             pak.Path = tocFileName.ToLower().Replace('/', '\\');
 
@@ -120,7 +127,7 @@ namespace PCarsTools
             }
 
             if (pakTocBuffer[14] != 0 && pakTocBuffer[15] != 0) // Check if first entry offset is absurdly too big that its possibly not decrypted correctly
-                Console.WriteLine($"Warning - possible crash: {pak.Name} toc could most likely not be decrypted correctly using key No.{pak.KeyIndex}");
+                outputWriter.WriteLine($"Warning - possible crash: {pak.Name} toc could most likely not be decrypted correctly using key No.{pak.KeyIndex}");
 
             pak.Entries = new List<BPakFileTocEntry>(fileCount);
             SpanReader sr = new SpanReader(pakTocBuffer);
@@ -177,7 +184,7 @@ namespace PCarsTools
                         BPakFileEncryption.DecryptData(pak.EncryptionType, tmp, tmp.Length, 0);
 
                         if (tmp[6] != 0 && tmp[7] != 0)
-                            Console.WriteLine("Warning: possibly failed to decrypt Extended Info Table");
+                            outputWriter.WriteLine("Warning: possibly failed to decrypt Extended Info Table");
 
                         extTocBuffer = tmp;
                     }
@@ -200,7 +207,7 @@ namespace PCarsTools
 
                     ulong uid = BHashCode.CreateUidRaw(extEntry.Path);
                     if (pak.Entries[i].UId != uid)
-                        Console.WriteLine($"Warning - unmatched UID/Hash: {extEntry.Path} (target={pak.Entries[i].UId:X16}, got={uid}");
+                        outputWriter.WriteLine($"Warning - unmatched UID/Hash: {extEntry.Path} (target={pak.Entries[i].UId:X16}, got={uid}");
 
                     pak.ExtEntries.Add(extEntry);
                 }
@@ -227,17 +234,17 @@ namespace PCarsTools
 
                 if (UnpackFromStream(entry, extEntry, outPath))
                 {
-                    Console.WriteLine($"Unpacked: [{Name}]\\{extEntry.Path}");
+                    outputWriter.WriteLine($"Unpacked: [{Name}]\\{extEntry.Path}");
                     totalCount++;
                 }
                 else
                 {
-                    Console.WriteLine($"Failed to unpack: {extEntry.Path}");
+                    outputWriter.WriteLine($"Failed to unpack: {extEntry.Path}");
                     failed++;
                 }
             }
 
-            Console.WriteLine($"Done. Extracted {totalCount} files ({failed} not extracted)");
+            outputWriter.WriteLine($"Done. Extracted {totalCount} files ({failed} not extracted)");
         }
 
         public bool UnpackFromLocalStoredFile(string outputDir, BPakFileTocEntry entry, BExtendedFileInfoEntry extEntry)
@@ -252,7 +259,7 @@ namespace PCarsTools
             }
             else
             {
-                Console.WriteLine($"File {extEntry.Path} not found to extract, can be ignored");
+                outputWriter.WriteLine($"File {extEntry.Path} not found to extract, can be ignored");
             }
 
             return false;
@@ -352,7 +359,7 @@ namespace PCarsTools
                 int outLen = (int)entry.FileSize;
                 ErrorCode err = decompContext.Decompress(bytes, 0, ref pakLen, decBuffer, 0, ref outLen);
                 if (err != ErrorCode.None)
-                    Console.WriteLine($"Error: Failed to unpack {extEntry.Path} (XMemDecompress/LZX) - Code: {(int)err:X8}");
+                    outputWriter.WriteLine($"Error: Failed to unpack {extEntry.Path} (XMemDecompress/LZX) - Code: {(int)err:X8}");
 
                 if (outLen == entry.FileSize)
                 {
@@ -365,7 +372,7 @@ namespace PCarsTools
             }
             else if (entry.Compression != PakFileCompressionType.None)
             {
-                Console.WriteLine($"Warning: Unrecognized compression type {entry.Compression} for {extEntry.Path}");
+                outputWriter.WriteLine($"Warning: Unrecognized compression type {entry.Compression} for {extEntry.Path}");
                 return false;
             }
             else
@@ -373,6 +380,13 @@ namespace PCarsTools
                 // No compression
                 File.WriteAllBytes(output, bytes);
                 return true;
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_fs is not null) {
+                _fs.Dispose();
             }
         }
     }

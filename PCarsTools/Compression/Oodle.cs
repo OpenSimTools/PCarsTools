@@ -14,7 +14,7 @@ namespace PCarsTools.Compression
         /// <summary>
         /// Oodle Library Path
         /// </summary>
-        private const string OodleLibraryPath = "oo2core_7_win64";
+        private const string OodleLibraryPath = "oo2core_4_win64";
 
         /// <summary>
         /// Oodle64 Decompression Method 

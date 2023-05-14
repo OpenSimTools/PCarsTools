@@ -1,5 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+	<AssemblyName>PCarsTools.XCompression</AssemblyName>
     <TargetFrameworks>net6.0;</TargetFrameworks>
     <Company>Gibbed</Company>
     <Authors>Gibbed</Authors>
